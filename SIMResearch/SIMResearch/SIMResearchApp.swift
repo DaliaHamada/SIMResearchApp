@@ -15,3 +15,19 @@ struct SIMResearchApp: App {
         }
     }
 }
+
+struct ContentView: View {
+    var body: some View {
+        TabView {
+            CarrierInfoView()
+                .tabItem {
+                    Label("Carrier Info", systemImage: "antenna.radiowaves.left.and.right")
+                }
+            
+            ResearchSummaryView()
+                .tabItem {
+                    Label("R&D Summary", systemImage: "doc.text.magnifyingglass")
+                }
+        }
+    }
+}
