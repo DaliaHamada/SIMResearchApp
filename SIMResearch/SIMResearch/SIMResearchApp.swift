@@ -26,7 +26,7 @@ struct ContentView: View {
             
             ResearchSummaryView()
                 .tabItem {
-                    Label("R&D Summary", systemImage: "doc.text.magnifyingglass")
+                    Label("Research", systemImage: "doc.text.magnifyingglass")
                 }
         }
     }

@@ -11,80 +11,155 @@ struct ResearchSummaryView: View {
     var body: some View {
         NavigationView {
             List {
-                Section(header: Text("✅ What Works")) {
+                Section {
+                    Text("Based on official Apple Documentation")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Section(header: Label("Available (iOS 15 and earlier)", systemImage: "checkmark.circle.fill")
+                    .foregroundColor(.green)) {
                     FeatureRow(
-                        title: "Get SIM Operator",
-                        status: .works,
-                        description: "Can retrieve carrier name (e.g., Vodafone, Orange) via CoreTelephony"
+                        title: "Active Cellular Slot Count",
+                        status: .worksLegacy,
+                        description: "serviceSubscriberCellularProviders.count returns number of active slots",
+                        apiReference: "CTTelephonyNetworkInfo"
                     )
                     
                     FeatureRow(
-                        title: "Get Country & Network Codes",
-                        status: .works,
-                        description: "MCC, MNC, and ISO country codes available"
+                        title: "Carrier Name",
+                        status: .worksLegacy,
+                        description: "CTCarrier.carrierName (e.g., 'Vodafone', 'Orange')",
+                        apiReference: "CTCarrier.carrierName"
                     )
                     
                     FeatureRow(
-                        title: "SMS Sender Number",
+                        title: "Country Codes",
+                        status: .worksLegacy,
+                        description: "ISO country code, MCC, MNC available",
+                        apiReference: "CTCarrier properties"
+                    )
+                    
+                    FeatureRow(
+                        title: "VoIP Support Detection",
+                        status: .worksLegacy,
+                        description: "Check if carrier allows VoIP calls",
+                        apiReference: "CTCarrier.allowsVOIP"
+                    )
+                    
+                    FeatureRow(
+                        title: "Carrier Change Notification",
                         status: .partial,
-                        description: "Only in SMS Filter Extension, not in main app"
+                        description: "Detects changes only while app is running",
+                        apiReference: "subscriberCellularProviderDidUpdateNotifier"
                     )
                 }
                 
-                Section(header: Text("❌ What Doesn't Work")) {
+                Section(header: Label("Deprecated (iOS 16+)", systemImage: "exclamationmark.triangle.fill")
+                    .foregroundColor(.orange)) {
                     FeatureRow(
-                        title: "Detect SIM Count",
-                        status: .notPossible,
-                        description: "No API to directly count physical or eSIMs"
-                    )
-                    
-                    FeatureRow(
-                        title: "Get Phone Number",
-                        status: .notPossible,
-                        description: "Privacy restrictions prevent access to device phone number"
-                    )
-                    
-                    FeatureRow(
-                        title: "SMS Sender Name",
-                        status: .notPossible,
-                        description: "Contact names not exposed to SMS extensions"
-                    )
-                    
-                    FeatureRow(
-                        title: "Detect Which SIM Received SMS",
-                        status: .notPossible,
-                        description: "SIM slot information not provided in iOS APIs"
-                    )
-                    
-                    FeatureRow(
-                        title: "Detect SIM Removal/Change",
-                        status: .notPossible,
-                        description: "No notifications or callbacks for SIM changes"
+                        title: "CTCarrier API",
+                        status: .deprecated,
+                        description: "All CTCarrier properties return nil starting iOS 16.4. No replacement provided.",
+                        apiReference: "Apple Developer Forums"
                     )
                 }
+                
+                Section(header: Label("Not Possible", systemImage: "xmark.circle.fill")
+                    .foregroundColor(.red)) {
+                    FeatureRow(
+                        title: "Phone Number from SIM",
+                        status: .notPossible,
+                        description: "Privacy restrictions prevent API access",
+                        apiReference: "Apple Privacy Guidelines"
+                    )
+                    
+                    FeatureRow(
+                        title: "SMS Sender Detection",
+                        status: .notPossible,
+                        description: "Cannot read incoming SMS or sender info in regular apps",
+                        apiReference: "SMS Filtering Extension only"
+                    )
+                    
+                    FeatureRow(
+                        title: "Distinguish SIM Types",
+                        status: .notPossible,
+                        description: "Cannot differentiate physical SIM from eSIM",
+                        apiReference: "No API available"
+                    )
+                    
+                    FeatureRow(
+                        title: "Detect Inactive eSIM",
+                        status: .notPossible,
+                        description: "Only active slots are visible to apps",
+                        apiReference: "Settings app only"
+                    )
+                    
+                    FeatureRow(
+                        title: "Which SIM Received SMS/Call",
+                        status: .notPossible,
+                        description: "Slot information not exposed to developers",
+                        apiReference: "iOS 17 user feature only"
+                    )
+                    
+                    FeatureRow(
+                        title: "SIM Removal Detection",
+                        status: .notPossible,
+                        description: "No system notifications or callbacks available",
+                        apiReference: "Privacy restriction"
+                    )
+                    
+                    FeatureRow(
+                        title: "Unique SIM Identifiers",
+                        status: .notPossible,
+                        description: "ICCID, IMSI not accessible for privacy/security",
+                        apiReference: "Core Telephony limitations"
+                    )
+                }
+                
+                Section(header: Text("References")) {
+                    Link(destination: URL(string: "https://developer.apple.com/documentation/coretelephony")!) {
+                        ReferenceRow(title: "Core Telephony Framework", subtitle: "Apple Developer Documentation")
+                    }
+                    
+                    Link(destination: URL(string: "https://developer.apple.com/forums/thread/714876")!) {
+                        ReferenceRow(title: "CTCarrier Deprecation", subtitle: "Apple Developer Forums")
+                    }
+                    
+                    Link(destination: URL(string: "https://support.apple.com/en-us/118669")!) {
+                        ReferenceRow(title: "About eSIM on iPhone", subtitle: "Apple Support")
+                    }
+                    
+                    Link(destination: URL(string: "https://developer.apple.com/app-store/user-privacy-and-data-use/")!) {
+                        ReferenceRow(title: "Privacy Guidelines", subtitle: "Apple Developer")
+                    }
+                }
             }
-            .navigationTitle("R&D Summary")
+            .navigationTitle("Research Summary")
         }
     }
 }
 
 enum FeatureStatus {
-    case works
-    case partial
-    case notPossible
+    case worksLegacy    // Works on iOS 15 and below
+    case partial        // Limited functionality
+    case deprecated     // Officially deprecated
+    case notPossible    // Not available due to privacy/security
     
     var icon: String {
         switch self {
-        case .works: return "checkmark.circle.fill"
+        case .worksLegacy: return "checkmark.circle.fill"
         case .partial: return "exclamationmark.triangle.fill"
+        case .deprecated: return "xmark.octagon.fill"
         case .notPossible: return "xmark.circle.fill"
         }
     }
     
     var color: Color {
         switch self {
-        case .works: return .green
+        case .worksLegacy: return .green
         case .partial: return .orange
+        case .deprecated: return .orange
         case .notPossible: return .red
         }
     }
@@ -94,6 +169,7 @@ struct FeatureRow: View {
     let title: String
     let status: FeatureStatus
     let description: String
+    let apiReference: String
     
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -109,8 +185,33 @@ struct FeatureRow: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                
+                Text("API: \(apiReference)")
+                    .font(.caption2)
+                    .foregroundColor(.blue)
+                    .padding(.top, 2)
             }
         }
         .padding(.vertical, 4)
+    }
+}
+
+struct ReferenceRow: View {
+    let title: String
+    let subtitle: String
+    
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .foregroundColor(.primary)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            Spacer()
+            Image(systemName: "arrow.up.right.square")
+                .foregroundColor(.blue)
+        }
     }
 }

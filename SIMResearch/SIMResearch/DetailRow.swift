@@ -16,7 +16,7 @@ struct DetailRow: View {
         HStack {
             Image(systemName: icon)
                 .foregroundColor(.blue)
-                .frame(width: 20)
+                .frame(width: 24)
             
             Text(label)
                 .foregroundColor(.secondary)
@@ -25,6 +25,7 @@ struct DetailRow: View {
             
             Text(value)
                 .fontWeight(.medium)
+                .multilineTextAlignment(.trailing)
         }
         .font(.subheadline)
     }
