@@ -1,163 +1,221 @@
-# iOS SIM & SMS R&D Project
+## 🎯 Research Objectives
 
-## Overview
-This R&D project investigates what SIM and SMS information can be accessed on iOS devices through official Apple APIs.
+This R&D project answers critical questions about iOS SIM and SMS capabilities:
 
----
-
-## R&D Questions & Findings
-
-### ✅ 1. Can we detect count of SIMs on the device?
-**Status:** ❌ **NOT POSSIBLE**
-
-**Reason:**
-- Apple does not expose any public API to directly count SIM cards (physical or eSIM)
-- The `CTTelephonyNetworkInfo.serviceSubscriberCellularProviders` returns carrier info but not guaranteed SIM count
-- Available only to system apps or MDM with special entitlements
+1. Can we detect the count of SIMs on a device?
+2. Can we detect SMS sender information (number and name)?
+3. Can we identify which SIM received an SMS?
+4. Can we retrieve SIM operator information?
+5. Can we get the phone number from SIM?
+6. Can we detect SIM removal or updates?
+7. Can we detect specific SIM changes and get detailed information?
+8. Can we detect inactive eSIM profiles?
 
 ---
 
-### ✅ 2. When receive SMS, can we detect the sender number and name?
-**Status:** ⚠️ **PARTIALLY POSSIBLE** (sender number only)
+## 🔍 Research Findings
 
-**Reason:**
-- Regular apps: **CANNOT** read incoming SMS at all (privacy/security)
-- SMS Filter Extension: Can access **sender number only** via `ILMessageFilterQueryRequest`
-- Sender name from Contacts: **NOT EXPOSED** to extensions or apps
+### 1️⃣ Can we detect the count of SIMs on the device?
 
-**Implementation:**
-- Requires creating an SMS Filter Extension target
-- User must manually enable the extension in Settings > Messages > Unknown & Spam
+**Status:** ⚠️ **LIMITED** (Deprecated in iOS 16+)
 
----
+**Answer:**
+- **iOS 15 and earlier:** YES, using `serviceSubscriberCellularProviders.count`
+- **iOS 16+:** API deprecated, returns nil values with **no replacement**
 
-### ✅ 3. When receive SMS, can we detect which SIM received that SMS?
-**Status:** ❌ **NOT POSSIBLE**
-
-**Reason:**
-- Apple's `ILMessageFilterExtension` API does not provide SIM slot information
-- No public API exposes which SIM (in dual-SIM devices) received an SMS
-
----
-
-### ✅ 4. Can we get the SIM operator (Orange, Vodafone, etc)?
-**Status:** ✅ **YES** (with limitations)
-
-**Reason:**
-- Use `CTTelephonyNetworkInfo` from CoreTelephony framework
-- Returns `CTCarrier` with carrier name, country code, MNC, MCC
-- Works on real devices only (not Simulator)
-- iOS 12+ supports multiple carriers via `serviceSubscriberCellularProviders`
-
-**Implementation:**
+**Details:**
 ```swift
 let networkInfo = CTTelephonyNetworkInfo()
 if let providers = networkInfo.serviceSubscriberCellularProviders {
-    for (key, carrier) in providers {
-        print("Carrier: \(carrier.carrierName ?? "Unknown")")
+    let simCount = providers.count
+    print("Active cellular slots: \(simCount)")
+}
+```
+
+**Limitations:**
+- Cannot differentiate between physical SIM and eSIM
+- Only detects **active** cellular plans, not total capacity
+- CTCarrier deprecated in iOS 16 with no replacement
+- Simulator always returns nil
+
+**Official Reference:**
+- [CTTelephonyNetworkInfo | Apple Developer](https://developer.apple.com/documentation/coretelephony/cttelephonynetworkinfo)
+- [serviceSubscriberCellularProviders | Apple Developer](https://developer.apple.com/documentation/coretelephony/cttelephonynetworkinfo/servicesubscribercellularproviders)
+
+---
+
+### 2️⃣ When receiving SMS, can we detect the sender's number and name?
+
+**Status:** ❌ **NOT POSSIBLE** (for regular apps)
+
+**Answer:**
+- **Regular apps:** Cannot access incoming SMS at all
+- **SMS Filter Extension:** Can access sender **number only** (not name)
+- **Sender name:** Not exposed to any app or extension
+
+**Details:**
+- iOS restricts SMS access for privacy and security
+- Only limited SMS filtering extensions allowed
+- Extension sees metadata only (sender number, not message body or contact name)
+
+**What's Available:**
+```swift
+// In SMS Filter Extension only (ILMessageFilterExtension)
+func handle(_ queryRequest: ILMessageFilterQueryRequest) async -> ILMessageFilterQueryResponse {
+    let sender = queryRequest.sender // Phone number only
+    // Cannot access contact name or message body
+}
+```
+
+**Official Reference:**
+- [SMS and MMS Message Filtering | Apple Developer](https://developer.apple.com/documentation/identitylookup/sms-and-mms-message-filtering)
+- [Privacy Guidelines | Apple Developer](https://developer.apple.com/design/human-interface-guidelines/privacy)
+
+---
+
+### 3️⃣ When receiving SMS, can we detect which SIM received that SMS?
+
+**Status:** ❌ **NOT POSSIBLE**
+
+**Answer:**
+- No API exposes which SIM (in dual-SIM devices) received an SMS
+- iOS 17 added **user-facing** filtering by SIM in Messages app
+- Developers cannot access this information programmatically
+
+**User Feature (iOS 17+):**
+- Users can filter messages by SIM in Settings
+- Labels like "Primary" or "Secondary" visible to users only
+- Not accessible via any API
+
+**Official Reference:**
+- [Use Dual SIM on iPhone | Apple Support](https://support.apple.com/guide/iphone/use-dual-sim-iph9c5776d3c/ios)
+
+---
+
+### 4️⃣ Can we get the SIM operator (Orange, Vodafone, etc.)?
+
+**Status:** ⚠️ **DEPRECATED** (iOS 16+)
+
+**Answer:**
+- **iOS 15 and earlier:** YES, using CTCarrier
+- **iOS 16+:** Deprecated, returns nil with **no replacement**
+
+**Details:**
+```swift
+let networkInfo = CTTelephonyNetworkInfo()
+if let carriers = networkInfo.serviceSubscriberCellularProviders {
+    for (_, carrier) in carriers {
+        print("Carrier: \(carrier.carrierName ?? "N/A")") // Returns nil on iOS 16+
+        print("MCC: \(carrier.mobileCountryCode ?? "N/A")")
+        print("MNC: \(carrier.mobileNetworkCode ?? "N/A")")
     }
 }
 ```
 
+**What You Could Get (iOS 15 and earlier):**
+- Carrier name (e.g., "Vodafone", "Orange")
+- Mobile Country Code (MCC)
+- Mobile Network Code (MNC)
+- ISO Country Code
+- VoIP support status
+
+**iOS 16+ Deprecation:**
+```
+@available(iOS, introduced: 4.0, deprecated: 16.0, message: "Deprecated with no replacement")
+```
+
+**Official Reference:**
+- [CTCarrier | Apple Developer](https://developer.apple.com/documentation/coretelephony/ctcarrier) (Deprecated)
+
 ---
 
-### ✅ 5. Can we get phone number from SIM?
+### 5️⃣ Can we get the phone number from SIM?
+
 **Status:** ❌ **NOT POSSIBLE**
 
-**Reason:**
-- No public API provides device phone number
-- CoreTelephony does not expose phone numbers
+**Answer:**
+- No public API provides access to device phone number
 - Privacy restriction by Apple
-- Some carriers don't store phone number on SIM
+- Not all carriers store phone number on SIM
 
-**Note:**
-- MDM solutions with special profiles may access this
-- Regular App Store apps cannot
+**User Access:**
+- Users can view in Settings > Phone > "My Number"
+- Not accessible programmatically to apps
+
+**Workaround:**
+- Ask user to manually enter their phone number
+- Use server-side verification (OTP)
+
+**Official Reference:**
+- [User Privacy and Data Use | Apple Developer](https://developer.apple.com/app-store/user-privacy-and-data-use/)
 
 ---
 
-### ✅ 6. Can we detect generic SIM removal or update?
+### 6️⃣ Can we detect generic SIM removal or update?
+
 **Status:** ❌ **NOT POSSIBLE**
 
-**Reason:**
-- No public API or notification for SIM status changes
-- No callback when SIM is removed or inserted
-- Background app refresh doesn't help (no trigger event)
+**Answer:**
+- No public API for SIM removal/insertion detection
+- No system notifications or callbacks
+- Privacy and security restriction
+
+**System Behavior:**
+- iOS shows "No SIM" in status bar (system level only)
+- Apps cannot detect or respond to these events
+
+**Official Reference:**
+- [Core Telephony | Apple Developer](https://developer.apple.com/documentation/coretelephony)
 
 ---
 
-### ✅ 7. Can we detect specific SIM removal or change? What details can we get?
+### 7️⃣ Can we detect specific SIM removal or change? What details can we get?
+
+**Status:** ⚠️ **RUNTIME ONLY** (while app is running)
+
+**Answer:**
+- Can detect changes **only while app is actively running**
+- Cannot detect changes when app is closed or backgrounded
+- No unique SIM identifiers available (ICCID, IMSI)
+
+**Details:**
+```swift
+let networkInfo = CTTelephonyNetworkInfo()
+networkInfo.subscriberCellularProviderDidUpdateNotifier = { carrier in
+    print("Carrier changed (runtime only)")
+    // Note: carrier properties return nil on iOS 16+
+}
+```
+
+**What You Can Get (iOS 15 and earlier):**
+- Notification when carrier info changes
+- Carrier name, MCC, MNC (if available)
+
+**What You CANNOT Get:**
+- Phone number
+- ICCID (SIM card unique ID)
+- IMSI (subscriber identity)
+- Exact change timestamp when app not running
+
+**Official Reference:**
+- [subscriberCellularProviderDidUpdateNotifier | Apple Developer](https://developer.apple.com/documentation/coretelephony/cttelephonynetworkinfo/subscribercellularproviderdidupdatenotifier)
+
+---
+
+### 8️⃣ Can we detect inactive eSIM?
+
 **Status:** ❌ **NOT POSSIBLE**
 
-**Reason:**
-- Same as #6 - no SIM change detection APIs
-- Cannot track which specific SIM was removed/changed
-- No details available about SIM hardware changes
+**Answer:**
+- No API to query inactive eSIM profiles
+- Only active cellular plans visible to apps
+- Users can check in Settings > Cellular
 
-**Workaround (unreliable):**
-- Poll carrier info periodically and compare (battery drain)
-- Only detects carrier changes, not physical SIM changes
+**User Method:**
+1. Go to Settings > Cellular
+2. Inactive eSIMs show "No Service" or "Not in Use"
+3. Not programmatically accessible
 
----
-
-## What This Sample App Demonstrates
-
-### ✅ Implemented Features:
-1. **Carrier Information Display**
-   - Carrier name (e.g., "Vodafone", "Orange")
-   - Country code (ISO code)
-   - Mobile Network Code (MNC)
-   - Mobile Country Code (MCC)
-   - Support for multiple SIMs (dual-SIM devices)
-
-2. **SMS Filter Extension** (Optional)
-   - Demonstrates access to sender phone number
-   - Shows filtering capabilities
-   - Must be enabled manually in iOS Settings
-
-3. **Professional SwiftUI UI**
-   - Clean, modern interface
-   - List view with carrier details
-   - Refresh capability
-   - Error handling
-
-### ❌ NOT Possible (Documented):
-- SIM count detection
-- Phone number retrieval
-- SMS sender name
-- SIM slot identification for SMS
-- SIM removal/change detection
-
----
-
-## Project Structure
-
-//
-
----
-
-## Testing
-
-### Testing Carrier Info:
-1. **Must test on REAL device** (not Simulator)
-2. Build and run the app
-3. View carrier information on main screen
-4. For dual-SIM testing, use device with 2 active SIMs
-
-### Testing SMS Filter Extension:
-1. Build and install app with extension
-2. Go to **Settings** → **Messages** → **Unknown & Spam**
-3. Enable your app's filter extension
-4. Send test SMS to device
-5. Check Xcode console for sender number logs
-
----
-
-## References
-
-- [CoreTelephony Framework](https://developer.apple.com/documentation/coretelephony)
-- [CTCarrier](https://developer.apple.com/documentation/coretelephony/ctcarrier)
-- [SMS Filter Extension](https://developer.apple.com/documentation/identitylookup)
-- [ILMessageFilterExtension](https://developer.apple.com/documentation/identitylookup/ilmessagefilterextension)
-
+**Official Reference:**
+- [About eSIM on iPhone | Apple Support](https://support.apple.com/en-us/118669)
 ---
