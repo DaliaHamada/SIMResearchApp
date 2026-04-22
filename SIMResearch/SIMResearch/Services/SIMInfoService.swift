@@ -29,6 +29,8 @@ final class SIMInfoService {
     /// so callers can subscribe to change notifications.
     private let networkInfo = CTTelephonyNetworkInfo()
 
+    private var ratChangeObserver: NSObjectProtocol?
+
     /// Plain-Swift mirror of `CTCarrier` so the deprecated type does
     /// not leak into the rest of the codebase.
     private struct CarrierValues {
@@ -78,11 +80,18 @@ final class SIMInfoService {
     /// The handler is invoked on a CoreTelephony private queue – the
     /// caller is responsible for hopping to the main thread.
     func startObserving(_ handler: @escaping (SIMSnapshot) -> Void) {
-        networkInfo.serviceSubscriberCellularProvidersDidUpdateNotifier = { [weak self] _ in
+        // `serviceSubscriberCellularProvidersDidUpdateNotifier` is deprecated in iOS 16 with
+        // no replacement; still the practical hook for SIM / carrier changes.
+        networkInfo.serviceSubscriberCellularProvidersDidUpdateNotifier = { [weak self] (_: String) in
             guard let self else { return }
             handler(self.currentSnapshot())
         }
-        networkInfo.serviceCurrentRadioAccessTechnologyDidUpdateNotifier = { [weak self] _ in
+
+        ratChangeObserver = NotificationCenter.default.addObserver(
+            forName: .CTRadioAccessTechnologyDidChange,
+            object: nil,
+            queue: nil
+        ) { [weak self] _ in
             guard let self else { return }
             handler(self.currentSnapshot())
         }
@@ -90,7 +99,10 @@ final class SIMInfoService {
 
     func stopObserving() {
         networkInfo.serviceSubscriberCellularProvidersDidUpdateNotifier = nil
-        networkInfo.serviceCurrentRadioAccessTechnologyDidUpdateNotifier = nil
+        if let token = ratChangeObserver {
+            NotificationCenter.default.removeObserver(token)
+            ratChangeObserver = nil
+        }
     }
 
     // MARK: - Deprecated containment

@@ -3,8 +3,8 @@
 //  SIMResearch
 //
 //  A value type that represents everything we are allowed to read about
-//  the host device through public iOS APIs (UIDevice, ProcessInfo,
-//  utsname, NSLocale and friends).
+//  the host device through public iOS APIs (UIDevice, utsname,
+//  Locale and friends).
 //
 
 import Foundation
@@ -65,25 +65,32 @@ struct DeviceInfo: Equatable {
 
     /// Current time zone identifier ("Europe/Berlin").
     let timeZoneIdentifier: String
+}
 
-    // MARK: - Capabilities
+extension DeviceInfo {
 
-    /// `true` when the screen orientation can be detected.
-    let isMultitaskingSupported: Bool
-
-    /// Number of active CPU cores.
-    let activeProcessorCount: Int
-
-    /// Total physical memory in bytes.
-    let physicalMemory: UInt64
-
-    /// Battery level (0 – 1) or `nil` when monitoring is disabled.
-    let batteryLevel: Float?
-
-    /// Battery state (charging, full, …) or `nil` when monitoring is
-    /// disabled.
-    let batteryState: String?
-
-    /// True when the user enabled Low Power Mode.
-    let isLowPowerModeEnabled: Bool
+    /// Hardware / device context fields with non-empty string values (skips optional fields that are `nil` or blank).
+    var concreteCollectedStringFields: [(label: String, value: String)] {
+        var rows: [(label: String, value: String)] = []
+        func add(_ label: String, _ value: String?) {
+            guard let v = value?.trimmingCharacters(in: .whitespacesAndNewlines), !v.isEmpty else { return }
+            rows.append((label, v))
+        }
+        add("Device name", deviceName)
+        add("Marketing model", marketingModel)
+        add("Hardware identifier", hardwareIdentifier)
+        add("Generic model", model)
+        add("Localized model", localizedModel)
+        add("System name", systemName)
+        add("System version", systemVersion)
+        add("Kernel", kernelName)
+        add("identifierForVendor", identifierForVendor)
+        add("Locale", localeIdentifier)
+        add("Region", regionCode)
+        add("Time zone", timeZoneIdentifier)
+        if !preferredLanguages.isEmpty {
+            rows.append(("Preferred languages", preferredLanguages.joined(separator: ", ")))
+        }
+        return rows
+    }
 }

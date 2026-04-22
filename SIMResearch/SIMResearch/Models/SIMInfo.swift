@@ -86,3 +86,44 @@ struct SIMSnapshot: Equatable {
         }
     }
 }
+
+// MARK: - Non-empty / non-placeholder values
+
+extension SIMSubscription {
+
+    /// `nil` when the value is missing, blank, or the iOS 16+ `--` / em-dash mask for deprecated `CTCarrier` fields.
+    static func meaningfulOperatorString(_ raw: String?) -> String? {
+        guard let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+            return nil
+        }
+        if trimmed == "--" || trimmed == "—" { return nil }
+        return trimmed
+    }
+
+    /// Label/value pairs you can show without printing placeholders. Always includes service id, VoIP flag, and RAT label; includes operator strings only when Apple returned a real value (rare on iOS 16+ for `CTCarrier` fields).
+    var concreteCollectedFields: [(label: String, value: String)] {
+        var rows: [(label: String, value: String)] = []
+        rows.append(("Service ID", id))
+        rows.append(("Allows VoIP", allowsVOIP ? "Yes" : "No"))
+        rows.append(("Radio access technology", radioAccessTechnologyDisplayName))
+        if let rat = radioAccessTechnology?.trimmingCharacters(in: .whitespacesAndNewlines), !rat.isEmpty {
+            rows.append(("Raw RAT constant", rat))
+        }
+        if let v = Self.meaningfulOperatorString(carrierName) { rows.append(("Carrier name", v)) }
+        if let v = Self.meaningfulOperatorString(mobileCountryCode) { rows.append(("MCC", v)) }
+        if let v = Self.meaningfulOperatorString(mobileNetworkCode) { rows.append(("MNC", v)) }
+        if let v = Self.meaningfulOperatorString(isoCountryCode) { rows.append(("ISO country code", v)) }
+        return rows
+    }
+}
+
+extension SIMSnapshot {
+
+    /// Snapshot-level strings that are non-nil and non-empty (e.g. data line preference).
+    var concreteContextFields: [(label: String, value: String)] {
+        guard let id = dataServiceIdentifier?.trimmingCharacters(in: .whitespacesAndNewlines), !id.isEmpty else {
+            return []
+        }
+        return [("Data subscription ID", id)]
+    }
+}

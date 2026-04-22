@@ -4,7 +4,6 @@
 //
 //  Reads the current device snapshot using only public iOS APIs:
 //  * UIDevice
-//  * ProcessInfo
 //  * uname() / utsname (POSIX, public)
 //  * Locale / TimeZone
 //
@@ -22,15 +21,6 @@ final class DeviceInfoService {
     /// Returns a fresh snapshot of the current device state.
     func currentSnapshot() -> DeviceInfo {
         let device = UIDevice.current
-
-        // Battery monitoring is opt-in. We enable it for the duration
-        // of the snapshot so that level / state are populated.
-        let wasMonitoringEnabled = device.isBatteryMonitoringEnabled
-        if !wasMonitoringEnabled {
-            device.isBatteryMonitoringEnabled = true
-        }
-        defer { device.isBatteryMonitoringEnabled = wasMonitoringEnabled }
-
         let hardwareID = Self.readHardwareIdentifier()
 
         return DeviceInfo(
@@ -46,13 +36,7 @@ final class DeviceInfoService {
             localeIdentifier: Locale.current.identifier,
             regionCode: Self.regionCode(),
             preferredLanguages: Locale.preferredLanguages,
-            timeZoneIdentifier: TimeZone.current.identifier,
-            isMultitaskingSupported: device.isMultitaskingSupported,
-            activeProcessorCount: ProcessInfo.processInfo.activeProcessorCount,
-            physicalMemory: ProcessInfo.processInfo.physicalMemory,
-            batteryLevel: device.batteryLevel >= 0 ? device.batteryLevel : nil,
-            batteryState: Self.describe(device.batteryState),
-            isLowPowerModeEnabled: ProcessInfo.processInfo.isLowPowerModeEnabled
+            timeZoneIdentifier: TimeZone.current.identifier
         )
     }
 
@@ -88,16 +72,6 @@ final class DeviceInfoService {
             return Locale.current.region?.identifier
         } else {
             return Locale.current.regionCode
-        }
-    }
-
-    private static func describe(_ state: UIDevice.BatteryState) -> String? {
-        switch state {
-        case .unknown:   return nil
-        case .unplugged: return "Unplugged"
-        case .charging:  return "Charging"
-        case .full:      return "Full"
-        @unknown default: return "Unknown"
         }
     }
 

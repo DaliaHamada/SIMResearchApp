@@ -14,9 +14,7 @@ struct DeviceInfoView: View {
                 VStack(spacing: 16) {
                     identitySection
                     osSection
-                    capabilitiesSection
                     localeSection
-                    powerSection
 
                     Text("Last refreshed \(viewModel.lastUpdated, style: .time)")
                         .font(.caption)
@@ -106,32 +104,6 @@ struct DeviceInfoView: View {
         }
     }
 
-    private var capabilitiesSection: some View {
-        SectionCard("Hardware Capabilities", systemImage: "memorychip", tint: .teal) {
-            InfoRow(
-                label: "Active CPU cores",
-                value: "\(viewModel.info.activeProcessorCount)",
-                caption: "ProcessInfo.activeProcessorCount",
-                systemImage: "cpu"
-            )
-            InfoRow(
-                label: "Physical memory",
-                value: ByteCountFormatter.string(
-                    fromByteCount: Int64(viewModel.info.physicalMemory),
-                    countStyle: .memory
-                ),
-                caption: "ProcessInfo.physicalMemory",
-                systemImage: "memorychip.fill"
-            )
-            InfoRow(
-                label: "Multitasking supported",
-                value: viewModel.info.isMultitaskingSupported ? "Yes" : "No",
-                caption: "UIDevice.isMultitaskingSupported",
-                systemImage: "rectangle.on.rectangle"
-            )
-        }
-    }
-
     private var localeSection: some View {
         SectionCard("Locale & Region", systemImage: "globe", tint: .green) {
             InfoRow(
@@ -157,29 +129,6 @@ struct DeviceInfoView: View {
                 value: viewModel.info.preferredLanguages.prefix(3).joined(separator: ", "),
                 caption: "Locale.preferredLanguages (top 3)",
                 systemImage: "text.bubble"
-            )
-        }
-    }
-
-    private var powerSection: some View {
-        SectionCard("Power", systemImage: "bolt.fill", tint: .orange) {
-            InfoRow(
-                label: "Battery level",
-                value: viewModel.info.batteryLevel.map { "\(Int($0 * 100))%" } ?? "Unavailable",
-                caption: "UIDevice.batteryLevel (requires monitoring)",
-                systemImage: "battery.100"
-            )
-            InfoRow(
-                label: "Battery state",
-                value: viewModel.info.batteryState ?? "Unknown",
-                caption: "UIDevice.batteryState",
-                systemImage: "powerplug"
-            )
-            InfoRow(
-                label: "Low Power Mode",
-                value: viewModel.info.isLowPowerModeEnabled ? "On" : "Off",
-                caption: "ProcessInfo.isLowPowerModeEnabled",
-                systemImage: "leaf"
             )
         }
     }

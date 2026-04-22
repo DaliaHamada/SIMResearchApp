@@ -70,11 +70,11 @@ struct SIMInfoView: View {
                     )
                 }
             }
-            if let dataID = viewModel.snapshot.dataServiceIdentifier {
+            ForEach(Array(viewModel.snapshot.concreteContextFields.enumerated()), id: \.offset) { _, field in
                 Divider()
                 InfoRow(
-                    label: "Data subscription",
-                    value: dataID,
+                    label: field.label,
+                    value: field.value,
                     caption: "CTTelephonyNetworkInfo.dataServiceIdentifier",
                     systemImage: "wifi.router",
                     monospaced: true
@@ -85,69 +85,71 @@ struct SIMInfoView: View {
 
     private func subscriptionCard(_ sub: SIMSubscription) -> some View {
         SectionCard(
-            "Subscription",
+            "Subscription (non-empty values)",
             systemImage: "antenna.radiowaves.left.and.right",
             tint: .purple
         ) {
-            InfoRow(
-                label: "Service ID",
-                value: sub.id,
-                caption: "Stable for the lifetime of the service",
-                systemImage: "number",
-                monospaced: true
-            )
-            InfoRow(
-                label: "Carrier name",
-                value: displayValue(sub.carrierName),
-                caption: "CTCarrier.carrierName (deprecated iOS 16+)",
-                systemImage: "building.2"
-            )
-            InfoRow(
-                label: "Mobile Country Code (MCC)",
-                value: displayValue(sub.mobileCountryCode),
-                caption: "CTCarrier.mobileCountryCode",
-                systemImage: "globe.europe.africa"
-            )
-            InfoRow(
-                label: "Mobile Network Code (MNC)",
-                value: displayValue(sub.mobileNetworkCode),
-                caption: "CTCarrier.mobileNetworkCode",
-                systemImage: "network"
-            )
-            InfoRow(
-                label: "ISO country code",
-                value: displayValue(sub.isoCountryCode),
-                caption: "CTCarrier.isoCountryCode",
-                systemImage: "flag"
-            )
-            InfoRow(
-                label: "Allows VoIP",
-                value: sub.allowsVOIP ? "Yes" : "No",
-                caption: "CTCarrier.allowsVOIP",
-                systemImage: "phone.bubble"
-            )
-            InfoRow(
-                label: "Radio access tech",
-                value: sub.radioAccessTechnologyDisplayName,
-                caption: "CTTelephonyNetworkInfo.serviceCurrentRadioAccessTechnology",
-                systemImage: "dot.radiowaves.left.and.right"
-            )
-            InfoRow(
-                label: "Raw RAT constant",
-                value: sub.radioAccessTechnology ?? "—",
-                caption: "CTRadioAccessTechnology* identifier",
-                systemImage: "chevron.left.forwardslash.chevron.right",
-                monospaced: true
-            )
+            Text("Only fields with real string values are listed. Operator name / MCC / MNC / ISO are omitted when nil, blank, or the iOS 16+ “--” mask.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            ForEach(Array(sub.concreteCollectedFields.enumerated()), id: \.offset) { _, field in
+                InfoRow(
+                    label: field.label,
+                    value: field.value,
+                    caption: captionForConcreteSIMField(field.label),
+                    systemImage: systemImageForConcreteSIMField(field.label),
+                    monospaced: field.label == "Service ID" || field.label == "Raw RAT constant"
+                )
+            }
+
             if sub.isDeprecatedCarrierMetadata {
                 Divider()
                 Label(
-                    "Carrier metadata is masked by iOS 16+ deprecation. The OS returns placeholders ('--') for these properties.",
+                    "Carrier metadata is masked by iOS 16+ deprecation. The OS returns placeholders ('--') for CTCarrier-backed properties; there is no public replacement.",
                     systemImage: "exclamationmark.triangle.fill"
                 )
                 .font(.footnote)
                 .foregroundStyle(.orange)
             }
+        }
+    }
+
+    private func captionForConcreteSIMField(_ label: String) -> String {
+        switch label {
+        case "Service ID":
+            return "CTTelephonyNetworkInfo service key; stable for the lifetime of the subscription"
+        case "Allows VoIP":
+            return "CTCarrier.allowsVOIP"
+        case "Radio access technology":
+            return "Mapped from serviceCurrentRadioAccessTechnology"
+        case "Raw RAT constant":
+            return "CTRadioAccessTechnology* constant"
+        case "Carrier name":
+            return "CTCarrier.carrierName"
+        case "MCC":
+            return "CTCarrier.mobileCountryCode"
+        case "MNC":
+            return "CTCarrier.mobileNetworkCode"
+        case "ISO country code":
+            return "CTCarrier.isoCountryCode"
+        default:
+            return "CoreTelephony"
+        }
+    }
+
+    private func systemImageForConcreteSIMField(_ label: String) -> String {
+        switch label {
+        case "Service ID": return "number"
+        case "Allows VoIP": return "phone.bubble"
+        case "Radio access technology": return "dot.radiowaves.left.and.right"
+        case "Raw RAT constant": return "chevron.left.forwardslash.chevron.right"
+        case "Carrier name": return "building.2"
+        case "MCC": return "globe.europe.africa"
+        case "MNC": return "network"
+        case "ISO country code": return "flag"
+        default: return "doc.text"
         }
     }
 
@@ -179,10 +181,6 @@ struct SIMInfoView: View {
         }
     }
 
-    private func displayValue(_ raw: String?) -> String {
-        guard let raw, !raw.isEmpty else { return "Unavailable" }
-        return raw
-    }
 }
 
 #Preview {
