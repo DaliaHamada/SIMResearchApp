@@ -2,7 +2,9 @@
 //  SIMResearchApp.swift
 //  SIMResearch
 //
-//  Created by Dalia Hamada on 16/10/2025.
+//  Demo app that surfaces every public iOS API related to the device,
+//  the SIM/eSIM/carrier configuration and the network reachability
+//  status. Uses SwiftUI throughout and only public Apple APIs.
 //
 
 import SwiftUI
@@ -11,23 +13,35 @@ import SwiftUI
 struct SIMResearchApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootTabView()
         }
     }
 }
 
-struct ContentView: View {
+/// Root navigation – four tabs, one per concern.
+struct RootTabView: View {
     var body: some View {
         TabView {
-            CarrierInfoView()
+            DeviceInfoView()
                 .tabItem {
-                    Label("Carrier Info", systemImage: "antenna.radiowaves.left.and.right")
+                    Label("Device", systemImage: "iphone")
                 }
-            
-            ResearchSummaryView()
+            SIMInfoView()
                 .tabItem {
-                    Label("R&D Summary", systemImage: "doc.text.magnifyingglass")
+                    Label("SIM / Carrier", systemImage: "simcard.2.fill")
+                }
+            NetworkInfoView()
+                .tabItem {
+                    Label("Network", systemImage: "wifi")
+                }
+            LimitationsView()
+                .tabItem {
+                    Label("Limitations", systemImage: "info.circle")
                 }
         }
     }
+}
+
+#Preview {
+    RootTabView()
 }
