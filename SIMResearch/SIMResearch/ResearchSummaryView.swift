@@ -11,11 +11,11 @@ struct ResearchSummaryView: View {
     var body: some View {
         NavigationView {
             List {
-                Section(header: Text("✅ What Works")) {
+                Section(header: Text("✅ What Works (Public APIs)")) {
                     FeatureRow(
-                        title: "Get SIM Operator",
+                        title: "Carrier MCC / MNC / RAT (when iOS provides)",
                         status: .works,
-                        description: "Can retrieve carrier name (e.g., Vodafone, Orange) via CoreTelephony"
+                        description: "CTTelephonyNetworkInfo + CTCarrier: often available on real devices, but CTCarrier is deprecated; strings may be empty on iOS 16+ for privacy"
                     )
                     
                     FeatureRow(

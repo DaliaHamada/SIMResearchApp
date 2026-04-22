@@ -11,19 +11,21 @@ import SwiftUI
 struct SIMResearchApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            DeviceNetworkDashboard()
         }
     }
 }
 
-struct ContentView: View {
+// MARK: - Optional legacy screen (kept for comparison with earlier carrier-only UI)
+
+struct LegacyCarrierTabsView: View {
     var body: some View {
         TabView {
             CarrierInfoView()
                 .tabItem {
-                    Label("Carrier Info", systemImage: "antenna.radiowaves.left.and.right")
+                    Label("Carrier (legacy UI)", systemImage: "antenna.radiowaves.left.and.right")
                 }
-            
+
             ResearchSummaryView()
                 .tabItem {
                     Label("R&D Summary", systemImage: "doc.text.magnifyingglass")
