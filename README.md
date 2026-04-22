@@ -1,221 +1,186 @@
-## 🎯 Research Objectives
+# Device & Network Demo (iOS SwiftUI)
 
-This R&D project answers critical questions about iOS SIM and SMS capabilities:
+Demo iOS application (SwiftUI, latest iOS SDK) that collects and displays all **publicly accessible** device, SIM/carrier, and network information on real iPhones.
 
-1. Can we detect the count of SIMs on a device?
-2. Can we detect SMS sender information (number and name)?
-3. Can we identify which SIM received an SMS?
-4. Can we retrieve SIM operator information?
-5. Can we get the phone number from SIM?
-6. Can we detect SIM removal or updates?
-7. Can we detect specific SIM changes and get detailed information?
-8. Can we detect inactive eSIM profiles?
+> This project intentionally avoids private APIs and explicitly marks data that is unavailable due to iOS privacy/security restrictions.
 
----
+## 1) Overview
 
-## 🔍 Research Findings
+### What the app does
+- Collects device information from `UIDevice`
+- Collects SIM/carrier information from `CoreTelephony`
+- Collects connectivity/network path information from `Network` (`NWPathMonitor`)
+- Displays results in 3 sections:
+  - **Device Info**
+  - **SIM / Carrier Info**
+  - **Network Info**
+- Clearly labels each data point with:
+  - API source
+  - Availability state (Available / Limited / Unavailable)
+  - Notes about restrictions and deprecations
 
-### 1️⃣ Can we detect the count of SIMs on the device?
+### Key features
+- SwiftUI dashboard designed for real iPhones (single SIM, dual SIM, physical SIM + eSIM combinations)
+- Graceful handling of nil/missing data (`Not available`)
+- Explicit SIM detection caveats (active plans are inferable; SIM type is not reliably exposed)
+- Strong separation of concerns:
+  - `Services` for data collection
+  - `ViewModels` for state and refresh logic
+  - `Views` for presentation
+  - `Models` for typed snapshot representation
 
-**Status:** ⚠️ **LIMITED** (Deprecated in iOS 16+)
+## 2) Project Structure
 
-**Answer:**
-- **iOS 15 and earlier:** YES, using `serviceSubscriberCellularProviders.count`
-- **iOS 16+:** API deprecated, returns nil values with **no replacement**
-
-**Details:**
-```swift
-let networkInfo = CTTelephonyNetworkInfo()
-if let providers = networkInfo.serviceSubscriberCellularProviders {
-    let simCount = providers.count
-    print("Active cellular slots: \(simCount)")
-}
+```text
+SIMResearch/
+  SIMResearch/
+    App/
+      SIMResearchApp.swift
+    Models/
+      DataAvailability.swift
+      DeviceNetworkSnapshot.swift
+      InfoField.swift
+    Services/
+      DeviceNetworkInfoProviding.swift
+      DefaultDeviceNetworkInfoProvider.swift
+    ViewModels/
+      DeviceNetworkViewModel.swift
+    Views/
+      DeviceNetworkDashboardView.swift
+      Components/
+        AvailabilityBadge.swift
+        InfoFieldRow.swift
+        SectionCard.swift
 ```
 
-**Limitations:**
-- Cannot differentiate between physical SIM and eSIM
-- Only detects **active** cellular plans, not total capacity
-- CTCarrier deprecated in iOS 16 with no replacement
-- Simulator always returns nil
+## 3) Data Points Matrix
 
-**Official Reference:**
-- [CTTelephonyNetworkInfo | Apple Developer](https://developer.apple.com/documentation/coretelephony/cttelephonynetworkinfo)
-- [serviceSubscriberCellularProviders | Apple Developer](https://developer.apple.com/documentation/coretelephony/cttelephonynetworkinfo/servicesubscribercellularproviders)
+The table below documents each displayed data point, example values, API used, and practical availability.
 
----
+| Data | Example Value | API | Availability |
+|---|---|---|---|
+| Device Name | `John’s iPhone` | `UIDevice.current.name` | Usually available |
+| System Name | `iOS` | `UIDevice.current.systemName` | Available |
+| System Version | `18.2` | `UIDevice.current.systemVersion` | Available |
+| Device Model | `iPhone` | `UIDevice.current.model` | Available (generic) |
+| Localized Model | `iPhone` | `UIDevice.current.localizedModel` | Available |
+| Vendor Identifier | `D66E...-...` | `UIDevice.current.identifierForVendor` | Limited (can reset in lifecycle scenarios) |
+| Active subscription count (inferred) | `2` | `CTTelephonyNetworkInfo.serviceSubscriberCellularProviders.count` | Limited (active plans only) |
+| SIM Summary | `Multiple active cellular plans detected` | Derived from CoreTelephony map count | Limited |
+| Carrier Name | `Vodafone` | `CTCarrier.carrierName` | Limited; deprecated in iOS 16+, may be nil |
+| MCC | `602` | `CTCarrier.mobileCountryCode` | Limited; deprecated in iOS 16+, may be nil |
+| MNC | `02` | `CTCarrier.mobileNetworkCode` | Limited; deprecated in iOS 16+, may be nil |
+| ISO Country Code | `eg` | `CTCarrier.isoCountryCode` | Limited; deprecated in iOS 16+, may be nil |
+| VoIP Supported | `Yes` / `No` | `CTCarrier.allowsVOIP` | Limited; deprecated in iOS 16+ |
+| Radio Access Technology | `0000000100000001: CTRadioAccessTechnologyNR` | `CTTelephonyNetworkInfo.serviceCurrentRadioAccessTechnology` | Limited; may be nil |
+| Network Path Status | `Satisfied` | `NWPathMonitor.currentPath.status` | Available |
+| Uses Cellular | `Yes` / `No` | `NWPath.usesInterfaceType(.cellular)` | Available |
+| Uses Wi‑Fi | `Yes` / `No` | `NWPath.usesInterfaceType(.wifi)` | Available |
+| Is Expensive | `Yes` / `No` | `NWPath.isExpensive` | Available |
+| Is Constrained | `Yes` / `No` | `NWPath.isConstrained` | Available |
 
-### 2️⃣ When receiving SMS, can we detect the sender's number and name?
+### Availability legend
+- **Available**: expected to work in normal runtime conditions.
+- **Limited**: may be nil, deprecated, context-dependent, or only inferable.
+- **Unavailable**: not exposed to regular iOS apps via public APIs.
 
-**Status:** ❌ **NOT POSSIBLE** (for regular apps)
+## 4) What is NOT possible on iOS (public APIs)
 
-**Answer:**
-- **Regular apps:** Cannot access incoming SMS at all
-- **SMS Filter Extension:** Can access sender **number only** (not name)
-- **Sender name:** Not exposed to any app or extension
+The following are **not accessible** in regular App Store apps:
 
-**Details:**
-- iOS restricts SMS access for privacy and security
-- Only limited SMS filtering extensions allowed
-- Extension sees metadata only (sender number, not message body or contact name)
+1. **Phone number from SIM/device**
+   - No public API returns the line number.
+   - Workaround: ask user input + verify via OTP.
 
-**What's Available:**
-```swift
-// In SMS Filter Extension only (ILMessageFilterExtension)
-func handle(_ queryRequest: ILMessageFilterQueryRequest) async -> ILMessageFilterQueryResponse {
-    let sender = queryRequest.sender // Phone number only
-    // Cannot access contact name or message body
-}
-```
+2. **IMSI / ICCID / SIM serial details**
+   - Blocked for privacy/security.
+   - No public entitlement for third-party apps.
 
-**Official Reference:**
-- [SMS and MMS Message Filtering | Apple Developer](https://developer.apple.com/documentation/identitylookup/sms-and-mms-message-filtering)
-- [Privacy Guidelines | Apple Developer](https://developer.apple.com/design/human-interface-guidelines/privacy)
+3. **Exact SIM type classification (physical SIM vs eSIM)**
+   - Public APIs do not provide a reliable flag per subscription.
+   - Workaround: infer active-plan count only (not SIM technology type).
 
----
+4. **Inactive eSIM profile enumeration**
+   - Not available through public APIs.
+   - Users can view in Settings manually.
 
-### 3️⃣ When receiving SMS, can we detect which SIM received that SMS?
+5. **Incoming SMS content, sender name, or which SIM received SMS**
+   - Regular apps cannot read user SMS inbox.
+   - SMS Filter extensions are heavily constrained and still do not provide full messaging access.
 
-**Status:** ❌ **NOT POSSIBLE**
+6. **Reliable background SIM insertion/removal history**
+   - No full lifecycle SIM event API for apps.
 
-**Answer:**
-- No API exposes which SIM (in dual-SIM devices) received an SMS
-- iOS 17 added **user-facing** filtering by SIM in Messages app
-- Developers cannot access this information programmatically
+### Why these limits exist
+- User privacy protection
+- Telecom security model
+- Platform policy constraints for App Store distribution
 
-**User Feature (iOS 17+):**
-- Users can filter messages by SIM in Settings
-- Labels like "Primary" or "Secondary" visible to users only
-- Not accessible via any API
+## 5) Permissions and Runtime Behavior
 
-**Official Reference:**
-- [Use Dual SIM on iPhone | Apple Support](https://support.apple.com/guide/iphone/use-dual-sim-iph9c5776d3c/ios)
+- This app uses public frameworks only:
+  - `UIKit` (`UIDevice`)
+  - `CoreTelephony`
+  - `Network`
+- No special user permission dialog is required for these specific reads.
+- Some values can still be absent depending on:
+  - Simulator vs real device
+  - Airplane mode / Wi‑Fi-only state
+  - iOS version behavior (especially CoreTelephony deprecations)
+  - Carrier provisioning
 
----
+## 6) Build and Run
 
-### 4️⃣ Can we get the SIM operator (Orange, Vodafone, etc.)?
+1. Open `SIMResearch/SIMResearch.xcodeproj`
+2. Select a real iPhone target (recommended over simulator)
+3. Build and run with latest Xcode/iOS SDK
+4. Tap refresh icon to recapture current snapshot
 
-**Status:** ⚠️ **DEPRECATED** (iOS 16+)
+## 7) References (Official Documentation)
 
-**Answer:**
-- **iOS 15 and earlier:** YES, using CTCarrier
-- **iOS 16+:** Deprecated, returns nil with **no replacement**
+### CoreTelephony
+- `CTTelephonyNetworkInfo`  
+  https://developer.apple.com/documentation/coretelephony/cttelephonynetworkinfo
+- `serviceSubscriberCellularProviders`  
+  https://developer.apple.com/documentation/coretelephony/cttelephonynetworkinfo/servicesubscribercellularproviders
+- `serviceCurrentRadioAccessTechnology`  
+  https://developer.apple.com/documentation/coretelephony/cttelephonynetworkinfo/servicecurrentradioaccesstechnology
+- `CTCarrier` (deprecated iOS 16+)  
+  https://developer.apple.com/documentation/coretelephony/ctcarrier
 
-**Details:**
-```swift
-let networkInfo = CTTelephonyNetworkInfo()
-if let carriers = networkInfo.serviceSubscriberCellularProviders {
-    for (_, carrier) in carriers {
-        print("Carrier: \(carrier.carrierName ?? "N/A")") // Returns nil on iOS 16+
-        print("MCC: \(carrier.mobileCountryCode ?? "N/A")")
-        print("MNC: \(carrier.mobileNetworkCode ?? "N/A")")
-    }
-}
-```
+### UIDevice (UIKit)
+- `UIDevice`  
+  https://developer.apple.com/documentation/uikit/uidevice
+- `identifierForVendor`  
+  https://developer.apple.com/documentation/uikit/uidevice/1620059-identifierforvendor
 
-**What You Could Get (iOS 15 and earlier):**
-- Carrier name (e.g., "Vodafone", "Orange")
-- Mobile Country Code (MCC)
-- Mobile Network Code (MNC)
-- ISO Country Code
-- VoIP support status
+### Network framework
+- `NWPathMonitor`  
+  https://developer.apple.com/documentation/network/nwpathmonitor
+- `NWPath`  
+  https://developer.apple.com/documentation/network/nwpath
 
-**iOS 16+ Deprecation:**
-```
-@available(iOS, introduced: 4.0, deprecated: 16.0, message: "Deprecated with no replacement")
-```
+### Privacy / Policy
+- User Privacy and Data Use  
+  https://developer.apple.com/app-store/user-privacy-and-data-use/
 
-**Official Reference:**
-- [CTCarrier | Apple Developer](https://developer.apple.com/documentation/coretelephony/ctcarrier) (Deprecated)
+## 8) Summary
 
----
+### Feasible on iOS (public APIs)
+- Device-level metadata (name/model/system/version, vendor ID)
+- Limited carrier metadata (often deprecated/nil on modern iOS)
+- Radio access technology (context-dependent)
+- Current network path characteristics (cellular/wifi/expensive/constrained)
+- Approximate active subscription count inference
 
-### 5️⃣ Can we get the phone number from SIM?
+### Not feasible on iOS (public APIs)
+- Phone number retrieval
+- IMSI/ICCID access
+- Definite physical SIM vs eSIM classification
+- Inactive eSIM access
+- SMS inbox inspection / sender name / SIM-specific SMS routing
 
-**Status:** ❌ **NOT POSSIBLE**
-
-**Answer:**
-- No public API provides access to device phone number
-- Privacy restriction by Apple
-- Not all carriers store phone number on SIM
-
-**User Access:**
-- Users can view in Settings > Phone > "My Number"
-- Not accessible programmatically to apps
-
-**Workaround:**
-- Ask user to manually enter their phone number
-- Use server-side verification (OTP)
-
-**Official Reference:**
-- [User Privacy and Data Use | Apple Developer](https://developer.apple.com/app-store/user-privacy-and-data-use/)
-
----
-
-### 6️⃣ Can we detect generic SIM removal or update?
-
-**Status:** ❌ **NOT POSSIBLE**
-
-**Answer:**
-- No public API for SIM removal/insertion detection
-- No system notifications or callbacks
-- Privacy and security restriction
-
-**System Behavior:**
-- iOS shows "No SIM" in status bar (system level only)
-- Apps cannot detect or respond to these events
-
-**Official Reference:**
-- [Core Telephony | Apple Developer](https://developer.apple.com/documentation/coretelephony)
-
----
-
-### 7️⃣ Can we detect specific SIM removal or change? What details can we get?
-
-**Status:** ⚠️ **RUNTIME ONLY** (while app is running)
-
-**Answer:**
-- Can detect changes **only while app is actively running**
-- Cannot detect changes when app is closed or backgrounded
-- No unique SIM identifiers available (ICCID, IMSI)
-
-**Details:**
-```swift
-let networkInfo = CTTelephonyNetworkInfo()
-networkInfo.subscriberCellularProviderDidUpdateNotifier = { carrier in
-    print("Carrier changed (runtime only)")
-    // Note: carrier properties return nil on iOS 16+
-}
-```
-
-**What You Can Get (iOS 15 and earlier):**
-- Notification when carrier info changes
-- Carrier name, MCC, MNC (if available)
-
-**What You CANNOT Get:**
-- Phone number
-- ICCID (SIM card unique ID)
-- IMSI (subscriber identity)
-- Exact change timestamp when app not running
-
-**Official Reference:**
-- [subscriberCellularProviderDidUpdateNotifier | Apple Developer](https://developer.apple.com/documentation/coretelephony/cttelephonynetworkinfo/subscribercellularproviderdidupdatenotifier)
-
----
-
-### 8️⃣ Can we detect inactive eSIM?
-
-**Status:** ❌ **NOT POSSIBLE**
-
-**Answer:**
-- No API to query inactive eSIM profiles
-- Only active cellular plans visible to apps
-- Users can check in Settings > Cellular
-
-**User Method:**
-1. Go to Settings > Cellular
-2. Inactive eSIMs show "No Service" or "Not in Use"
-3. Not programmatically accessible
-
-**Official Reference:**
-- [About eSIM on iPhone | Apple Support](https://support.apple.com/en-us/118669)
----
+### Suggested alternatives
+- Ask the user for phone number and verify with OTP
+- Use carrier-agnostic server-side onboarding flow
+- For telecom workflows, rely on user-provided settings screenshots/instructions when OS data is inaccessible
