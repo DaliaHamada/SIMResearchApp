@@ -62,15 +62,6 @@ SIMResearchApp/
 
 Architecture: **Model → Service → ViewModel → View**. Services talk to Apple frameworks; view models are `@MainActor` `ObservableObject`s; views are SwiftUI.
 
-### Build & run
-
-1. Open `SIMResearch/SIMResearch.xcodeproj` in **Xcode 16+**.
-2. Select the **SIMResearch** scheme and an **iPhone** destination. The **Simulator does not report cellular subscriptions** (SIM tab will be empty).
-3. **Signing**: set **Automatically manage signing** and choose your **Team** under *Signing & Capabilities*. The bundle identifier must match an App ID your team is allowed to use (org-specific IDs may be required for some provisioning setups).
-4. Build and run (**⌘R**). The app does not declare runtime permission strings; `CoreTelephony` and `Network` do not require user prompts for the reads used here.
-
-**Minimum deployment target:** **iOS 18.2** (as set in the Xcode project).
-
 ### Permissions
 
 These APIs do **not** require `Info.plist` usage descriptions for the features shipped in this demo:
