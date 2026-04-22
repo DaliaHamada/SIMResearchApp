@@ -107,7 +107,7 @@ If you add location or tracking, you must add the appropriate keys and flows.
 | Allows VoIP | `Yes` / `No` | `CTCarrier.allowsVOIP` | When provider dict exists |
 | Radio access technology | `LTE`, `5G NR`, … | same | `serviceCurrentRadioAccessTechnology` | Best-effort; display may show “No service” when unregistered |
 | Data subscription id | `0000000100000001` | `CTTelephonyNetworkInfo.dataServiceIdentifier` | iOS 13+; may be `nil` |
-| Active subscription count | `1` / `2` | Union of carrier + RAT service keys | Conditional |
+| Active subscription count | `1` / `2` | Keys from `serviceSubscriberCellularProviders` when non-empty; otherwise RAT map keys (avoids extra RAT-only ids inflating single-SIM counts) | Conditional |
 
 **Live updates:** `serviceSubscriberCellularProvidersDidUpdateNotifier` (deprecated iOS 16, no replacement) plus `NotificationCenter` observation of **`CTRadioAccessTechnologyDidChange`** for RAT changes. There is **no** public `serviceCurrentRadioAccessTechnologyDidUpdateNotifier` on `CTTelephonyNetworkInfo`.
 

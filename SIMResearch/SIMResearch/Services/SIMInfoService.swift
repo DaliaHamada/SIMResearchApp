@@ -48,9 +48,17 @@ final class SIMInfoService {
         let radios = networkInfo.serviceCurrentRadioAccessTechnology ?? [:]
         let carriers = readCarriers()
 
+        // Use `serviceSubscriberCellularProviders` keys as the canonical subscription
+        // list when present. Union(carriers, radios) can report *two* keys on a single-SIM
+        // phone because `serviceCurrentRadioAccessTechnology` sometimes retains an extra
+        // service id with no matching provider row — that inflated "Dual SIM" in the UI.
+        let subscriptionKeys: Set<String> = {
+            if !carriers.isEmpty { return Set(carriers.keys) }
+            return Set(radios.keys)
+        }()
+
         var subs: [SIMSubscription] = []
-        let allKeys = Set(carriers.keys).union(radios.keys)
-        for key in allKeys.sorted() {
+        for key in subscriptionKeys.sorted() {
             let carrier = carriers[key]
             let rat = radios[key]
             subs.append(
