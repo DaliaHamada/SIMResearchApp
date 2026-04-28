@@ -38,6 +38,10 @@ struct RootTabView: View {
                 .tabItem {
                     Label("Trust", systemImage: "lock.shield.fill")
                 }
+            IdentifierCatalogView()
+                .tabItem {
+                    Label("IDs", systemImage: "list.bullet.rectangle.portrait")
+                }
             MSISDNLookupView()
                 .tabItem {
                     Label("MSISDN", systemImage: "phone.badge.checkmark")

@@ -24,6 +24,7 @@ The app uses only public APIs (`UIDevice`, `CoreTelephony`, `Network`, POSIX `un
 | **SIM / Carrier** | Subscriptions, RAT, optional operator strings when not placeholders; summary & data line when present |
 | **Network** | `NWPathMonitor` status, interfaces, expensive/constrained, IP family support |
 | **Trust** | The four-layer App Store-safe device-identity stack that replaces IMEI / IMSI / ICCID / EID / MEID for banking / government use cases: IDFV + Keychain UUID + DeviceCheck + App Attest |
+| **IDs** | Catalog of every identifier the app can read, with a per-trigger matrix showing exactly when each one is reset (reboot, OS update, app reinstall, all-vendor-apps removed, factory wipe, new iPhone). Sourced from Apple's documented behaviour for `Foundation.UUID` and `UIDevice.identifierForVendor`. |
 | **MSISDN** | User-assisted MSISDN-via-USSD lookup for the four Egyptian operators (Vodafone, Etisalat, Orange, WE). Pre-fills the dialer; the user confirms the call and types the number back. |
 | **Limitations** | What iOS does not expose and practical workarounds |
 
@@ -50,25 +51,29 @@ SIMResearchApp/
         │   ├── SIMInfo.swift          # SIMSubscription, SIMSnapshot
         │   ├── NetworkInfo.swift
         │   ├── MSISDNLookup.swift     # EgyptianCarrier, MSISDNEntry, MSISDNNormalizer
-        │   └── DeviceTrust.swift      # DeviceTrustSnapshot, DeviceCheckState, AppAttestState
+        │   ├── DeviceTrust.swift      # DeviceTrustSnapshot, DeviceCheckState, AppAttestState
+        │   └── IdentifierLifecycle.swift # IdentifierLifecycleEntry, change-trigger matrix
         ├── Services/
         │   ├── DeviceInfoService.swift
         │   ├── SIMInfoService.swift   # CoreTelephony + RAT notifications
         │   ├── NetworkInfoService.swift
-        │   ├── USSDLookupService.swift     # tel:// dialer + on-disk MSISDN store
-        │   ├── KeychainUUIDService.swift   # device-only Keychain UUID
-        │   ├── DeviceCheckService.swift    # DCDevice.generateToken
-        │   ├── AppAttestService.swift      # DCAppAttestService key / attest / assertion
-        │   └── DeviceTrustService.swift    # orchestrator
+        │   ├── USSDLookupService.swift       # tel:// dialer + on-disk MSISDN store
+        │   ├── KeychainUUIDService.swift     # device-only Keychain UUID
+        │   ├── DeviceCheckService.swift      # DCDevice.generateToken
+        │   ├── AppAttestService.swift        # DCAppAttestService key / attest / assertion
+        │   ├── DeviceTrustService.swift      # orchestrator
+        │   └── IdentifierCatalogService.swift # collects every live identifier
         ├── ViewModels/
         │   ├── MSISDNLookupViewModel.swift
-        │   └── DeviceTrustViewModel.swift
+        │   ├── DeviceTrustViewModel.swift
+        │   └── IdentifierCatalogViewModel.swift
         └── Views/
             ├── DeviceInfoView.swift
             ├── SIMInfoView.swift
             ├── NetworkInfoView.swift
             ├── MSISDNLookupView.swift
             ├── DeviceTrustView.swift
+            ├── IdentifierCatalogView.swift
             ├── LimitationsView.swift
             └── Components/
 ```
@@ -143,7 +148,25 @@ The four-layer device-trust stack. This is the artifact to take to a banking / r
 
 > Why is this in this repo? Because this is the App Store-safe replacement for the blocked hardware identifiers (IMEI, IMSI, ICCID, EID, MEID, MAC). Every licensed banking app in MENA / EU uses some combination of these four. App Attest in particular is technically *stronger* than IMEI was for the fraud use case — IMEI is a 15-digit static string trivially spoofable in any HTTP client; App Attest is a per-request signature only this app on this device can produce.
 
-### 2.5 Network tab (`NetworkInfoService`)
+### 2.5 IDs tab (`IdentifierCatalogService`)
+
+Comprehensive answer to "what unique IDs can I get on iOS, and what changes each one?" Pulled live from the existing services and ordered most-stable → least-stable.
+
+| Identifier | Stability | Resets on |
+| --- | --- | --- |
+| Hardware identifier (`utsname.machine`) | Immutable hardware fact | Replacing the device |
+| Marketing model (derived) | Immutable hardware fact | Replacing the device |
+| iOS version (`UIDevice.systemVersion`) | Per device | iOS update |
+| Keychain device UUID (`kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`) | Per device | Factory reset, new iPhone |
+| App Attest key id (`DCAppAttestService.generateKey`) | Per Secure Enclave key | Factory reset, new iPhone, build signed by a different developer team |
+| `identifierForVendor` (IDFV) | Per vendor install | Removing ALL vendor apps then reinstalling, factory reset, new iPhone, different developer team — see [Apple docs](https://developer.apple.com/documentation/uikit/uidevice/identifierforvendor) |
+| CoreTelephony service identifier(s) | Per app install | SIM swap, factory reset, new iPhone, app reinstall |
+| Locale identifier | Per device | Factory reset, new iPhone (also user changing language in Settings) |
+| DeviceCheck token (`DCDevice.generateToken`) | Per call | Every call. The token bytes change every time, but the underlying (device, developer team) pair Apple's servers see is stable. |
+
+> Practical guidance for a "phone id": use the 3-layer composite — Keychain UUID + IDFV + App Attest signature. The Trust tab implements all three. Only a factory reset or moving to a new physical iPhone resets all three at once.
+
+### 2.6 Network tab (`NetworkInfoService`)
 
 | Name | Example | API | Availability |
 | --- | --- | --- | --- |
