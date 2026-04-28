@@ -23,6 +23,8 @@ The app uses only public APIs (`UIDevice`, `CoreTelephony`, `Network`, POSIX `un
 | **Device** | Identity (model, `uname` id, IDFV), OS, locale & region |
 | **SIM / Carrier** | Subscriptions, RAT, optional operator strings when not placeholders; summary & data line when present |
 | **Network** | `NWPathMonitor` status, interfaces, expensive/constrained, IP family support |
+| **Trust** | The four-layer App Store-safe device-identity stack that replaces IMEI / IMSI / ICCID / EID / MEID for banking / government use cases: IDFV + Keychain UUID + DeviceCheck + App Attest |
+| **MSISDN** | User-assisted MSISDN-via-USSD lookup for the four Egyptian operators (Vodafone, Etisalat, Orange, WE). Pre-fills the dialer; the user confirms the call and types the number back. |
 | **Limitations** | What iOS does not expose and practical workarounds |
 
 ### Non-empty / “concrete” fields in code
@@ -46,16 +48,27 @@ SIMResearchApp/
         ├── Models/
         │   ├── DeviceInfo.swift
         │   ├── SIMInfo.swift          # SIMSubscription, SIMSnapshot
-        │   └── NetworkInfo.swift
+        │   ├── NetworkInfo.swift
+        │   ├── MSISDNLookup.swift     # EgyptianCarrier, MSISDNEntry, MSISDNNormalizer
+        │   └── DeviceTrust.swift      # DeviceTrustSnapshot, DeviceCheckState, AppAttestState
         ├── Services/
         │   ├── DeviceInfoService.swift
         │   ├── SIMInfoService.swift   # CoreTelephony + RAT notifications
-        │   └── NetworkInfoService.swift
+        │   ├── NetworkInfoService.swift
+        │   ├── USSDLookupService.swift     # tel:// dialer + on-disk MSISDN store
+        │   ├── KeychainUUIDService.swift   # device-only Keychain UUID
+        │   ├── DeviceCheckService.swift    # DCDevice.generateToken
+        │   ├── AppAttestService.swift      # DCAppAttestService key / attest / assertion
+        │   └── DeviceTrustService.swift    # orchestrator
         ├── ViewModels/
+        │   ├── MSISDNLookupViewModel.swift
+        │   └── DeviceTrustViewModel.swift
         └── Views/
             ├── DeviceInfoView.swift
             ├── SIMInfoView.swift
             ├── NetworkInfoView.swift
+            ├── MSISDNLookupView.swift
+            ├── DeviceTrustView.swift
             ├── LimitationsView.swift
             └── Components/
 ```
@@ -102,7 +115,35 @@ If you add location or tracking, you must add the appropriate keys and flows.
 
 **Live updates:** `serviceSubscriberCellularProvidersDidUpdateNotifier` (deprecated iOS 16, no replacement) plus `NotificationCenter` observation of **`CTRadioAccessTechnologyDidChange`** for RAT changes. There is **no** public `serviceCurrentRadioAccessTechnologyDidUpdateNotifier` on `CTTelephonyNetworkInfo`.
 
-### 2.3 Network tab (`NetworkInfoService`)
+### 2.3 MSISDN tab (`USSDLookupService`)
+
+User-assisted lookup for Egyptian operators. The app cannot read the USSD response — only the user can — so the value the user types back is what gets stored.
+
+| Carrier | USSD code | iOS dialer behavior |
+| --- | --- | --- |
+| Vodafone | `*878#` | Pre-fills via `tel://*878%23`; system confirmation sheet shown. |
+| Etisalat | `*947#` | Pre-fills via `tel://*947%23`; system confirmation sheet shown. |
+| Orange | `#119#` | iOS rejects USSD URLs starting with `#`. App copies the code to the clipboard and instructs manual dial. |
+| WE | `*688#` | Pre-fills via `tel://*688%23`; system confirmation sheet shown. |
+
+The carrier is **not** auto-detected (`CTCarrier` is deprecated and masked on iOS 16+); the user picks one of the four cards.
+
+> Why isn't this silent / background? See `LimitationsView` and section 3 below. Silent USSD dialing is the textbook toll-fraud pattern; iOS has no API for it, in any tier (App Store, Enterprise, or MDM).
+
+### 2.4 Trust tab (`DeviceTrustService`)
+
+The four-layer device-trust stack. This is the artifact to take to a banking / regulator / government stakeholder when they ask for IMEI on iOS.
+
+| Layer | API | What it gives you | Bank / KYC use case |
+| --- | --- | --- | --- |
+| 1. IDFV | `UIDevice.identifierForVendor` | UUID per (vendor, device); resets when all vendor apps uninstalled | Lightweight session/device fingerprint |
+| 2. Keychain device UUID | `Security` + `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` | UUID that survives app uninstall on the same device, never syncs to iCloud | Persistent half of "remember this device" |
+| 3. DeviceCheck | `DCDevice.generateToken` | Apple-issued opaque blob; backend exchanges with Apple to read/write 2 device-scoped bits per developer team | Fraud blocklist that survives app reinstall |
+| 4. App Attest | `DCAppAttestService` | Hardware-attested Secure Enclave key; per-request signatures only an unmodified copy of the app on a real device can produce | Strong customer authentication / request integrity per CBE, EBA SCA, FFIEC |
+
+> Why is this in this repo? Because this is the App Store-safe replacement for the blocked hardware identifiers (IMEI, IMSI, ICCID, EID, MEID, MAC). Every licensed banking app in MENA / EU uses some combination of these four. App Attest in particular is technically *stronger* than IMEI was for the fraud use case — IMEI is a 15-digit static string trivially spoofable in any HTTP client; App Attest is a per-request signature only this app on this device can produce.
+
+### 2.5 Network tab (`NetworkInfoService`)
 
 | Name | Example | API | Availability |
 | --- | --- | --- | --- |
@@ -120,6 +161,7 @@ The **Limitations** tab mirrors this for stakeholders. Short version:
 | Topic | Status |
 | --- | --- |
 | Phone number (MSISDN), IMEI, ICCID, IMSI | Not available to App Store apps |
+| Silent / background USSD dialing (e.g. `*878#`, `*947#`, `#119#`, `*688#`) | `tel:` always shows the system call sheet, cannot run from the background, and the carrier's USSD response is never delivered to the app. The MSISDN tab implements the only flow Apple permits: user-confirmed dial + manual copy-back. |
 | Carrier name / MCC / MNC / ISO on iOS 16+ | Deprecated `CTCarrier`; placeholders; **no public replacement** |
 | Inactive eSIM profiles | Not visible; only **active** services |
 | Physical SIM vs eSIM slot | Not distinguishable via public API |

@@ -54,6 +54,12 @@ struct LimitationsView: View {
             kind: .blocked
         ),
         .init(
+            title: "Silent USSD MSISDN retrieval (e.g. *878#, *947#, #119#, *688#)",
+            detail: "iOS cannot dial USSD codes from the background, cannot bypass the system call confirmation sheet, and never delivers the carrier's USSD response back to the app. The 'MSISDN' tab implements the only flow Apple permits: pre-fill the dialer, ask the user to confirm the call, and have the user copy the number from the carrier reply back into the app.",
+            symbol: "asterisk",
+            kind: .blocked
+        ),
+        .init(
             title: "ICCID / IMSI / IMEI",
             detail: "Hardware identifiers are restricted by Apple's privacy policy and require MDM / private entitlements.",
             symbol: "lock.shield",
@@ -75,6 +81,12 @@ struct LimitationsView: View {
             title: "Network connectivity (Wi-Fi / cellular / wired)",
             detail: "Fully supported via NWPathMonitor in the Network framework.",
             symbol: "wifi",
+            kind: .ok
+        ),
+        .init(
+            title: "Device identity for fraud / KYC / 'remember this device'",
+            detail: "Use the four-layer stack in the Trust tab: identifierForVendor + Keychain device UUID (kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly) + DeviceCheck (DCDevice.generateToken) + App Attest (DCAppAttestService) signatures from the Secure Enclave. App Store-safe, accepted by CBE / EBA / FFIEC, and stronger than IMEI was for the actual fraud use case.",
+            symbol: "lock.shield.fill",
             kind: .ok
         )
     ]

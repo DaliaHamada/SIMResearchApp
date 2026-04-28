@@ -34,6 +34,14 @@ struct RootTabView: View {
                 .tabItem {
                     Label("Network", systemImage: "wifi")
                 }
+            DeviceTrustView()
+                .tabItem {
+                    Label("Trust", systemImage: "lock.shield.fill")
+                }
+            MSISDNLookupView()
+                .tabItem {
+                    Label("MSISDN", systemImage: "phone.badge.checkmark")
+                }
             LimitationsView()
                 .tabItem {
                     Label("Limitations", systemImage: "info.circle")
